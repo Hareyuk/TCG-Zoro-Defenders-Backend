@@ -1,0 +1,23 @@
+{
+  "id": "sala_ml1yc7y65hr8qb",
+  "nombre": "awa",
+  "jugadores": [
+    {
+      "id": "68630363c6ea3f64e297a68e",
+      "usuario": {
+        "id": "68630363c6ea3f64e297a68e",
+        "usuario": "TestKyua"
+      },
+      "socketId": "IIyfrkiC_qVNY2KbAAAd",
+      "cartas": [],
+      "ordenadas": false
+    }
+  ],
+  "comenzado": false,
+  "ronda": 1,
+  "finalizada": false,
+  "resultado": null,
+  "estado": "esperando-jugadores",
+  "ganador": null,
+  "createdAt": "2026-01-31T06:49:42.463Z"
+}

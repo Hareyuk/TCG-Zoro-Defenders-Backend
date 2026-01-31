@@ -1,9 +1,0 @@
-{
-  "id": "sala-unica",
-  "jugadores": [],
-  "comenzado": false,
-  "ronda": 1,
-  "finalizada": false,
-  "resultado": null,
-  "estado": "esperando-jugadores"
-}

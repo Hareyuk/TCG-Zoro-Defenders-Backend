@@ -80,11 +80,33 @@ export class SocketIOManager {
                     return;
                 }
 
+                if (!parsedData.usuario || !parsedData.usuario.id || !parsedData.usuario.usuario) {
+                    socket.emit('ERROR', { mensaje: 'Datos de usuario incompletos para crear sala (faltan id o nombre de usuario).' });
+                    return;
+                }
+
                 try {
-                    const nuevaSala = await this.#juegoServicio.crearSalaDinamica(parsedData.nombreSala);
-                    socket.emit('SALA_CREADA', { success: true, sala: nuevaSala });
-                    // Emitir a todos los clientes para actualizar lista de salas disponibles
-                    this.#io.emit('LISTA_SALAS_ACTUALIZADA', { salas: await this.#juegoServicio.obtenerTodasLasSalas() });
+                    // Crear sala y agregar el usuario creador automáticamente
+                    const nuevaSala = await this.#juegoServicio.crearSalaDinamicaYAgregarJugador(
+                        parsedData.nombreSala, 
+                        parsedData.usuario.id, 
+                        parsedData.usuario, 
+                        socket.id
+                    );
+
+                    // Emitir SALA_CREADA al cliente que la creó (con el usuario ya dentro)
+                    socket.emit('SALA_CREADA', { 
+                        success: true, 
+                        sala: nuevaSala
+                    });
+
+                    // Notificar a TODOS los clientes que hay una nueva sala disponible
+                    const salasActualizadas = await this.#juegoServicio.obtenerSalasConDetalles();
+                    this.#io.emit('LISTA_SALAS_ACTUALIZADA', { salas: salasActualizadas });
+
+                    // Emitir ESTADO_SALA_ACTUALIZADO al usuario que creó la sala (en espera)
+                    socket.emit('ESTADO_SALA_ACTUALIZADO', nuevaSala);
+
                 } catch (error) {
                     console.error(`Error al crear sala: ${error.message}`);
                     socket.emit('ERROR', { mensaje: `Error al crear sala: ${error.message}` });
@@ -95,7 +117,7 @@ export class SocketIOManager {
             socket.on('SOLICITAR_SALAS', async () => {
                 console.log(`Cliente ${socket.id} solicita lista de salas`);
                 try {
-                    const salas = await this.#juegoServicio.obtenerTodasLasSalas();
+                    const salas = await this.#juegoServicio.obtenerSalasConDetalles();
                     socket.emit('LISTA_SALAS_ACTUALIZADA', { salas });
                 } catch (error) {
                     console.error(`Error al obtener lista de salas: ${error.message}`);
@@ -114,8 +136,35 @@ export class SocketIOManager {
                     socket.emit('ERROR', { mensaje: 'Datos de usuario incompletos para unirse (faltan id o nombre de usuario).' });
                     return;
                 }
+
+                if (!parsedData.idSala) {
+                    socket.emit('ERROR', { mensaje: 'ID de sala requerido para unirse.' });
+                    return;
+                }
+
                 try {
-                    await this.#juegoServicio.unirseOSumarJugador(parsedData.usuario.id, parsedData.usuario, socket.id)
+                    // Obtener la sala específica
+                    const sala = await this.#juegoServicio.obtenerSalaPorId(parsedData.idSala);
+                    
+                    if (!sala) {
+                        socket.emit('ERROR', { mensaje: 'La sala no existe.' });
+                        return;
+                    }
+
+                    // Agregar jugador a la sala específica
+                    const salaActualizada = await this.#juegoServicio.unirseASalaDinamica(
+                        parsedData.idSala, 
+                        parsedData.usuario.id, 
+                        parsedData.usuario, 
+                        socket.id
+                    );
+                    
+                    // Emitir ESTADO_SALA_ACTUALIZADO para esa sala específica
+                    this.#io.emit('ESTADO_SALA_ACTUALIZADO', salaActualizada);
+                    
+                    // También actualizar la lista de salas para todos
+                    const salasActualizadas = await this.#juegoServicio.obtenerSalasConDetalles();
+                    this.#io.emit('LISTA_SALAS_ACTUALIZADA', { salas: salasActualizadas });
                 } catch (e) {
                     console.error(`Error al procesar UNIRSE_JUEGO para ${socket.id}: ${e.message}`);
                     socket.emit('ERROR', { mensaje: `Error al unirse al juego: ${e.message}` });

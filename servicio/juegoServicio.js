@@ -19,8 +19,9 @@ class JuegoServicio extends EventEmitter {
   }
 
   init = async () => {
-    this.#sala = await inicializarSala(this.#persistencia, true)
-    this.#emitirEstadoActualizado()
+    // Ya no se inicializa la sala única, ahora usamos salas dinámicas
+    // this.#sala = await inicializarSala(this.#persistencia, true)
+    // this.#emitirEstadoActualizado()
   }
 
 
@@ -78,6 +79,25 @@ class JuegoServicio extends EventEmitter {
     }
   }
 
+  // Crear una nueva sala dinámicamente Y agregar el jugador creador automáticamente
+  crearSalaDinamicaYAgregarJugador = async (nombreSala, idJugador, datosJugador, socketId) => {
+    try {
+      // Primero crear la sala
+      const nuevaSala = await crearNuevaSala(this.#persistencia, nombreSala)
+      console.log(`Nueva sala creada: ${nuevaSala.id} - ${nuevaSala.nombre}`)
+      
+      // Luego agregar el jugador creador automáticamente
+      const salaConJugador = await agregarJugador(nuevaSala, idJugador, datosJugador, socketId, this.#persistencia)
+      console.log(`Jugador ${datosJugador.usuario} agregado automáticamente a la sala ${nuevaSala.id}`)
+      
+      this.#emitirSalaCreada(salaConJugador)
+      return salaConJugador
+    } catch (error) {
+      console.error(`Error al crear sala dinámica con jugador: ${error.message}`)
+      throw error
+    }
+  }
+
   // Obtener todas las salas disponibles
   obtenerTodasLasSalas = async () => {
     try {
@@ -85,6 +105,74 @@ class JuegoServicio extends EventEmitter {
       return salas
     } catch (error) {
       console.error(`Error al obtener salas: ${error.message}`)
+      throw error
+    }
+  }
+
+  // Obtener todas las salas con detalles (para mostrar en el lobby)
+  obtenerSalasConDetalles = async () => {
+    try {
+      const salas = await this.#persistencia.listarSalas()
+      // Mapear cada sala con información útil para el lobby
+      const salasConDetalles = salas.map(sala => ({
+        id: sala.id,
+        nombre: sala.nombre,
+        jugadores: sala.jugadores.length,
+        maxJugadores: 2,
+        estado: sala.estado,
+        createdAt: sala.createdAt,
+        listaJugadores: sala.jugadores.map(j => ({
+          id: j.id,
+          usuario: j.usuario
+        }))
+      }))
+      return salasConDetalles
+    } catch (error) {
+      console.error(`Error al obtener salas con detalles: ${error.message}`)
+      throw error
+    }
+  }
+
+  // Obtener una sala específica por ID
+  obtenerSalaPorId = async (idSala) => {
+    try {
+      const sala = await this.#persistencia.cargarSalaPorId(idSala)
+      return sala
+    } catch (error) {
+      console.error(`Error al obtener sala ${idSala}: ${error.message}`)
+      throw error
+    }
+  }
+
+  // Unirse a una sala dinámica específica por ID
+  unirseASalaDinamica = async (idSala, idJugador, datosJugador, socketId) => {
+    try {
+      // Cargar la sala específica
+      const sala = await this.#persistencia.cargarSalaPorId(idSala)
+      
+      if (!sala) {
+        throw new Error(`La sala ${idSala} no existe`)
+      }
+
+      // Agregar jugador a la sala
+      const salaActualizada = await agregarJugador(sala, idJugador, datosJugador, socketId, this.#persistencia)
+      
+      console.log(`Jugador ${datosJugador.usuario} agregado a la sala ${idSala}`)
+      return salaActualizada
+    } catch (error) {
+      console.error(`Error al unirse a sala dinámica: ${error.message}`)
+      throw error
+    }
+  }
+
+  // Actualizar una sala específica
+  actualizarSala = async (sala) => {
+    try {
+      await this.#persistencia.actualizarSalaPorId(sala.id, sala)
+      console.log(`Sala ${sala.id} actualizada`)
+      return sala
+    } catch (error) {
+      console.error(`Error al actualizar sala: ${error.message}`)
       throw error
     }
   }
