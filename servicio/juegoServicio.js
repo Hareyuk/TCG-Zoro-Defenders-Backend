@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
 //import ModelFactory from '../model/DAO/factory.js'
-import { inicializarSala } from './modulosJuego/salaManager.js'
+import { inicializarSala, crearNuevaSala } from './modulosJuego/salaManager.js'
 import { agregarJugador, ordenarCartas } from './modulosJuego/jugadoresManager.js'
 import { repartirCartas } from './modulosJuego/cartasManager.js'
 import { enfrentarCartas } from './modulosJuego/rondaManager.js'
@@ -65,6 +65,30 @@ class JuegoServicio extends EventEmitter {
     return this.#sala
   }
 
+  // Crear una nueva sala dinámicamente
+  crearSalaDinamica = async (nombreSala) => {
+    try {
+      const nuevaSala = await crearNuevaSala(this.#persistencia, nombreSala)
+      console.log(`Nueva sala creada: ${nuevaSala.id} - ${nuevaSala.nombre}`)
+      this.#emitirSalaCreada(nuevaSala)
+      return nuevaSala
+    } catch (error) {
+      console.error(`Error al crear sala dinámica: ${error.message}`)
+      throw error
+    }
+  }
+
+  // Obtener todas las salas disponibles
+  obtenerTodasLasSalas = async () => {
+    try {
+      const salas = await this.#persistencia.listarSalas()
+      return salas
+    } catch (error) {
+      console.error(`Error al obtener salas: ${error.message}`)
+      throw error
+    }
+  }
+
   async echarJugadoresDeSala() {
     this.#emitirEcharJugadores();
     const sala = await this.#persistencia.reiniciarSala();
@@ -86,6 +110,11 @@ class JuegoServicio extends EventEmitter {
   #emitirEcharJugadores()
   {
     this.emit('finDePartida');
+  }
+
+  #emitirSalaCreada(sala) {
+    this.emit('salaCreada', sala);
+    console.log(`JuegoServicio emitió 'salaCreada'. Sala: ${sala.id} (${sala.nombre})`);
   }
 
   //metodo modularizado para emitir el estado

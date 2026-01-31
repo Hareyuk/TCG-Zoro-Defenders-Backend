@@ -1,6 +1,6 @@
 {
-  "id": "sala_ml1wn622o7wls9",
-  "nombre": "123123",
+  "id": "sala_ml1ws37jabk9kx",
+  "nombre": "awa1",
   "jugadores": [],
   "comenzado": false,
   "ronda": 1,
@@ -8,5 +8,5 @@
   "resultado": null,
   "estado": "esperando-jugadores",
   "ganador": null,
-  "createdAt": "2026-01-31T06:02:13.994Z"
+  "createdAt": "2026-01-31T06:06:03.585Z"
 }

@@ -70,6 +70,39 @@ export class SocketIOManager {
                 }
             });
 
+            // Escuchar solicitud de crear una nueva sala
+            socket.on('CREATE_ROOM', async (data) => {
+                console.log(`Evento CREATE_ROOM recibido del cliente (${socket.id}):`, data);
+                let parsedData = typeof data === 'string' ? JSON.parse(data) : data;
+
+                if (!parsedData.nombreSala) {
+                    socket.emit('ERROR', { mensaje: 'El nombre de la sala es requerido.' });
+                    return;
+                }
+
+                try {
+                    const nuevaSala = await this.#juegoServicio.crearSalaDinamica(parsedData.nombreSala);
+                    socket.emit('SALA_CREADA', { success: true, sala: nuevaSala });
+                    // Emitir a todos los clientes para actualizar lista de salas disponibles
+                    this.#io.emit('LISTA_SALAS_ACTUALIZADA', { salas: await this.#juegoServicio.obtenerTodasLasSalas() });
+                } catch (error) {
+                    console.error(`Error al crear sala: ${error.message}`);
+                    socket.emit('ERROR', { mensaje: `Error al crear sala: ${error.message}` });
+                }
+            });
+
+            // Escuchar solicitud de obtener lista de salas disponibles
+            socket.on('SOLICITAR_SALAS', async () => {
+                console.log(`Cliente ${socket.id} solicita lista de salas`);
+                try {
+                    const salas = await this.#juegoServicio.obtenerTodasLasSalas();
+                    socket.emit('LISTA_SALAS_ACTUALIZADA', { salas });
+                } catch (error) {
+                    console.error(`Error al obtener lista de salas: ${error.message}`);
+                    socket.emit('ERROR', { mensaje: 'Error al obtener lista de salas.' });
+                }
+            });
+
 
             // --- Aca reemplaza el router y el controlador y pasa derecho al servicio ---
             
