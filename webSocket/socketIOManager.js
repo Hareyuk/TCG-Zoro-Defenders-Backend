@@ -100,10 +100,6 @@ export class SocketIOManager {
                         sala: nuevaSala
                     });
 
-                    // Notificar a TODOS los clientes que hay una nueva sala disponible
-                    const salasActualizadas = await this.#juegoServicio.obtenerSalasConDetalles();
-                    this.#io.emit('LISTA_SALAS_ACTUALIZADA', { salas: salasActualizadas });
-
                     // Emitir ESTADO_SALA_ACTUALIZADO al usuario que creó la sala (en espera)
                     socket.emit('ESTADO_SALA_ACTUALIZADO', nuevaSala);
 
@@ -161,10 +157,6 @@ export class SocketIOManager {
                     
                     // Emitir ESTADO_SALA_ACTUALIZADO para esa sala específica
                     this.#io.emit('ESTADO_SALA_ACTUALIZADO', salaActualizada);
-                    
-                    // También actualizar la lista de salas para todos
-                    const salasActualizadas = await this.#juegoServicio.obtenerSalasConDetalles();
-                    this.#io.emit('LISTA_SALAS_ACTUALIZADA', { salas: salasActualizadas });
                 } catch (e) {
                     console.error(`Error al procesar UNIRSE_JUEGO para ${socket.id}: ${e.message}`);
                     socket.emit('ERROR', { mensaje: `Error al unirse al juego: ${e.message}` });
@@ -219,12 +211,20 @@ export class SocketIOManager {
             });
 
             // --- Escucha cuando un cliente se desconecta ---
-            socket.on('disconnect', (reason) => {
+            socket.on('disconnect', async (reason) => {
                 console.log(`Cliente Socket.IO desconectado. ID: ${socket.id}. Razón: ${reason}`);
-                this.#juegoServicio.manejarDesconexionJugador(socket.id)
-                    .catch(error => {
-                        console.error(`Error al manejar la desconexión del jugador ${socket.id}:`, error);
-                    });
+                try {
+                    // Primero intentar manejar desconexión de sala dinámica
+                    const resultado = await this.#juegoServicio.manejarDesconexionJugadorDinamico(socket.id);
+                    
+                    if (resultado.salaEliminada) {
+                        console.log(`Sala ${resultado.salaId} eliminada por desconexión del único jugador`);
+                    } else if (resultado.salaId && resultado.jugadoresRestantes !== undefined) {
+                        console.log(`Jugador removido de sala ${resultado.salaId}`);
+                    }
+                } catch (error) {
+                    console.error(`Error al manejar la desconexión del cliente ${socket.id}:`, error);
+                }
             });
         });
     }

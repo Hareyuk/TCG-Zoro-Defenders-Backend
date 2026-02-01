@@ -177,6 +177,61 @@ class JuegoServicio extends EventEmitter {
     }
   }
 
+  // Eliminar una sala específica por ID
+  eliminarSala = async (idSala) => {
+    try {
+      await this.#persistencia.eliminarSalaPorId(idSala)
+      console.log(`Sala ${idSala} eliminada`)
+      return true
+    } catch (error) {
+      console.error(`Error al eliminar sala: ${error.message}`)
+      throw error
+    }
+  }
+
+  // Manejar desconexión de jugador en salas dinámicas
+  manejarDesconexionJugadorDinamico = async (socketId) => {
+    try {
+      // Obtener todas las salas
+      const salas = await this.#persistencia.listarSalas()
+      
+      // Buscar la sala donde está este jugador
+      for (const sala of salas) {
+        // Guard: verificar que la sala tenga la estructura esperada
+        if (!sala || !Array.isArray(sala.jugadores)) {
+          console.warn(`Sala corrupta encontrada durante desconexión: ${sala?.id}`)
+          continue
+        }
+        
+        const jugadorIndex = sala.jugadores.findIndex(j => j.socketId === socketId)
+        
+        if (jugadorIndex !== -1) {
+          console.log(`Jugador ${sala.jugadores[jugadorIndex].usuario} desconectado de sala ${sala.id}`)
+          
+          // Si la sala solo tiene 1 jugador (el que se desconecta)
+          if (sala.jugadores.length === 1) {
+            // Eliminar la sala vacía
+            await this.eliminarSala(sala.id)
+            console.log(`Sala vacía ${sala.id} eliminada automáticamente`)
+            return { salaEliminada: true, salaId: sala.id }
+          } else {
+            // Si hay más jugadores, remover solo al que se desconectó
+            sala.jugadores.splice(jugadorIndex, 1)
+            await this.#persistencia.actualizarSalaPorId(sala.id, sala)
+            console.log(`Jugador removido de sala ${sala.id}. Jugadores restantes: ${sala.jugadores.length}`)
+            return { salaEliminada: false, salaId: sala.id, jugadoresRestantes: sala.jugadores.length }
+          }
+        }
+      }
+      
+      console.log(`Socket ID ${socketId} desconectado, pero no pertenece a ninguna sala`)
+      return { salaEliminada: false, socketId }
+    } catch (error) {
+      console.error(`Error al manejar desconexión de jugador: ${error.message}`)
+      throw error
+    }
+  }
+
   async echarJugadoresDeSala() {
     this.#emitirEcharJugadores();
     const sala = await this.#persistencia.reiniciarSala();

@@ -94,15 +94,43 @@ class JuegoPersistenciaArchivo {
       
       for (const archivo of archivos) {
         if (archivo.endsWith('.out')) {
-          const rutaSala = path.join(salasDir, archivo)
-          const data = await fs.readFile(rutaSala, 'utf-8')
-          salas.push(JSON.parse(data))
+          try {
+            const rutaSala = path.join(salasDir, archivo)
+            const data = await fs.readFile(rutaSala, 'utf-8')
+            const sala = JSON.parse(data)
+            // Solo agregar salas válidas (no null)
+            if (sala && typeof sala === 'object' && sala.id) {
+              salas.push(sala)
+            } else {
+              console.warn(`Sala corrupta encontrada en ${archivo}, será ignorada`)
+            }
+          } catch (parseError) {
+            console.warn(`Error al parsear archivo ${archivo}: ${parseError.message}`)
+          }
         }
       }
       
       return salas
     } catch (error) {
       if (error.code === 'ENOENT') return []
+      throw error
+    }
+  }
+
+  // Eliminar una sala específica por ID
+  async eliminarSalaPorId(idSala) {
+    const salasDir = './data/salas'
+    const rutaSala = path.join(salasDir, `${idSala}.out`)
+    
+    try {
+      await fs.unlink(rutaSala)
+      console.log(`Sala ${idSala} eliminada`)
+      return true
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        console.warn(`Intento de eliminar sala no existente: ${idSala}`)
+        return false
+      }
       throw error
     }
   }
